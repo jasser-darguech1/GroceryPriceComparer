@@ -33,72 +33,81 @@ export async function getAccessToken() {
     return cachedToken;
 }
 
-export async function searchKroger(zip: string, radius: number, query: string) {
+export async function getKrogerStores(zip: string, radius: number) {
     const token = await getAccessToken();
     const BASE_URL = 'https://api.kroger.com/v1';
 
-    // Get locations by radius based on exa research
-    const locRes = await axios.get(`${BASE_URL}/locations`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-        params: {
-            'filter.zipCode.near': zip,
-            'filter.radiusInMiles': radius,
-            'filter.limit': 5
-        }
-    });
+    try {
+        const locRes = await axios.get(`${BASE_URL}/locations`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+            params: {
+                'filter.zipCode.near': zip,
+                'filter.radiusInMiles': radius,
+                'filter.limit': 10
+            }
+        });
 
-    const locations = locRes.data.data;
-    if (!locations || locations.length === 0) return [];
+        const locations = locRes.data.data;
+        if (!locations || locations.length === 0) return [];
+        
+        return locations.map((loc: any) => ({
+            locationId: loc.locationId,
+            name: loc.name,
+            address: `${loc.address.addressLine1}, ${loc.address.city}, ${loc.address.state} ${loc.address.zipCode}`,
+            phone: loc.phone
+        }));
+    } catch (e) {
+        console.error("Store Fetch error");
+        return [];
+    }
+}
+
+export async function searchKroger(locationId: string, locationAddress: string, zip: string, query: string) {
+    const token = await getAccessToken();
+    const BASE_URL = 'https://api.kroger.com/v1';
 
     const results = [];
     
-    // Check top matching stores
-    for (let i = 0; i < Math.min(locations.length, 3); i++) {
-        const location = locations[i];
-        const address = `${location.address.addressLine1}, ${location.address.city}, ${location.address.state} ${location.address.zipCode}`;
+    try {
+        const prodRes = await axios.get(`${BASE_URL}/products`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+            params: {
+                'filter.term': query,
+                'filter.locationId': locationId,
+                'filter.limit': 15
+            }
+        });
 
-        try {
-            const prodRes = await axios.get(`${BASE_URL}/products`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-                params: {
-                    'filter.term': query,
-                    'filter.locationId': location.locationId,
-                    'filter.limit': 10
+        const products = prodRes.data.data || [];
+        for (const product of products) {
+            const items = product.items || [];
+            if (items.length > 0) {
+                const item = items[0];
+                const price = item.price?.regular || item.price?.promo || null;
+                
+                let imageUrl = null;
+                if (product.images && product.images.length > 0) {
+                    const frontImage = product.images.find((img: any) => img.perspective === 'front') || product.images[0];
+                    const largeSize = frontImage.sizes?.find((s: any) => s.size === 'large' || s.size === 'medium');
+                    imageUrl = largeSize ? largeSize.url : null;
                 }
-            });
 
-            console.log(`Raw Kroger Products Response for store ${location.locationId}:`, JSON.stringify(prodRes.data, null, 2));
-
-            const products = prodRes.data.data || [];
-            for (const product of products) {
-                const items = product.items || [];
-                if (items.length > 0) {
-                    const item = items[0];
-                    const price = item.price?.regular || item.price?.promo || null;
-                    
-                    let imageUrl = null;
-                    if (product.images && product.images.length > 0) {
-                        const frontImage = product.images.find((img: any) => img.perspective === 'front') || product.images[0];
-                        const largeSize = frontImage.sizes?.find((s: any) => s.size === 'large' || s.size === 'medium');
-                        imageUrl = largeSize ? largeSize.url : null;
-                    }
-
-                    if (price) {
-                        results.push({
-                            name: product.description,
-                            price,
-                            unit: item.size || 'unknown',
-                            locationId: location.locationId,
-                            storeAddress: address,
-                            zip,
-                            imageUrl
-                        });
-                    }
+                if (price) {
+                    results.push({
+                        productId: product.productId,
+                        name: product.description,
+                        price,
+                        unit: item.size || 'unknown',
+                        locationId: locationId,
+                        storeAddress: locationAddress,
+                        zip: zip,
+                        imageUrl
+                    });
                 }
             }
-        } catch (e) {
-            console.error("Store search skipped");
         }
+    } catch (e) {
+        console.error("Store search skipped");
     }
 
     return results;

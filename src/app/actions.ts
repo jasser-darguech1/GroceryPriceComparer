@@ -1,35 +1,80 @@
 "use server"
 
-import { searchKroger } from '@/lib/kroger';
+import { searchKroger, getKrogerStores } from '@/lib/kroger';
 import { supabase } from '@/lib/supabase';
 import { revalidatePath } from 'next/cache';
 
+export async function getStoresAction(zip: string, radius: number) {
+    if (!zip) return { success: false, data: [] };
+    const stores = await getKrogerStores(zip, radius);
+    return { success: true, data: stores };
+}
+
 export async function searchGroceriesAction(prevState: any, formData: FormData) {
     const query = formData.get('query') as string;
+    const locationId = formData.get('locationId') as string;
+    const storeAddress = formData.get('storeAddress') as string;
     const zip = formData.get('zip') as string;
-    const radiusStr = formData.get('radius') as string;
-    const radius = Number(radiusStr);
 
-    if (!query || !zip) {
-         return { success: false, error: "Missing query or zip", data: [] };
+    if (!query || !locationId) {
+         return { success: false, error: "Missing query or selected store", data: [] };
     }
     try {
-        const results = await searchKroger(zip, radius > 0 ? radius : 10, query);
-        return { success: true, data: results, error: null };
+        const results = await searchKroger(locationId, storeAddress, zip, query);
+        
+        // Grab currently saved logic to assign properties
+        const { data: savedDb } = await supabase.from('saved_groceries').select('product_id, quantity');
+        const savedMap = new Map();
+        if (savedDb) {
+            savedDb.forEach(s => savedMap.set(s.product_id, s.quantity));
+        }
+
+        const mappedResults = results.map((item: any) => ({
+            ...item,
+            isSaved: savedMap.has(item.productId),
+            savedQuantity: savedMap.get(item.productId) || 0
+        }));
+
+        return { success: true, data: mappedResults, error: null };
     } catch (e: any) {
         return { success: false, error: e.message, data: [] };
     }
 }
 
 export async function saveGrocery(item: any) {
-    const { name, price, locationId, zip, imageUrl } = item;
-    const { data, error } = await supabase
-        .from('saved_groceries')
-        .insert([{ name, price, location_id: locationId, zip, image_url: imageUrl }]);
+    const { productId, name, price, locationId, zip, imageUrl } = item;
+    
+    // Check if exists for quantity incrementing vs creating new one
+    const { data: existing } = await supabase.from('saved_groceries').select('id, quantity').eq('product_id', productId).single();
+    
+    let error;
+    if (existing) {
+        const { error: updateError } = await supabase.from('saved_groceries').update({ quantity: existing.quantity + 1 }).eq('id', existing.id);
+        error = updateError;
+    } else {
+        const { error: insertError } = await supabase.from('saved_groceries').insert([{ product_id: productId, name, price, location_id: locationId, zip, image_url: imageUrl, quantity: 1 }]);
+        error = insertError;
+    }
 
     if (error) {
-        console.error("Supabase insert error:", error);
+        console.error("Supabase insert/update error:", error);
         throw new Error(error.message);
+    }
+    
+    revalidatePath('/');
+    return { success: true };
+}
+
+export async function updateItemQuantity(productId: string, incrementBy: number) {
+    const { data: existing } = await supabase.from('saved_groceries').select('id, quantity').eq('product_id', productId).single();
+    
+    if (existing) {
+        const newQuantity = existing.quantity + incrementBy;
+        if (newQuantity <= 0) {
+            await supabase.from('saved_groceries').delete().eq('id', existing.id);
+        } else {
+            await supabase.from('saved_groceries').update({ quantity: newQuantity }).eq('id', existing.id);
+        }
     }
     
     revalidatePath('/');
