@@ -7,8 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSearchParams } from 'next/navigation';
-import { Trash2, ShoppingCart, Repeat, Store, MapPin } from "lucide-react";
-import { deleteItem, clearAllItems, getStoresAction, bulkKrogerCompareAction } from '@/app/actions';
+import { Trash2, ShoppingCart, Repeat, Store, MapPin, Edit2, Ban } from "lucide-react";
+import { deleteItem, clearAllItems, getStoresAction, bulkKrogerCompareAction, fetchManualKrogerResultsAction } from '@/app/actions';
 
 import { updateItemQuantity } from '@/app/actions';
 
@@ -28,6 +28,85 @@ export function CartSidebar({ savedItems }: { savedItems: any[] }) {
     const [fetchedStores, setFetchedStores] = useState<any[]>([]);
     const [zipInput, setZipInput] = useState("10001");
     const [isFetchingStores, startFetchingStores] = useTransition();
+
+    // Manual Override Modal State
+    const [manualModalOpen, setManualModalOpen] = useState(false);
+    const [manualTargetIndex, setManualTargetIndex] = useState<number | null>(null);
+    const [manualSearchQuery, setManualSearchQuery] = useState("");
+    const [manualSearchResults, setManualSearchResults] = useState<any[]>([]);
+    const [isManualSearching, startManualSearching] = useTransition();
+    
+    // Explicit Location Tracker
+    const [activeLocationId, setActiveLocationId] = useState<string | null>(null);
+
+    const openManualOverride = (index: number, defaultName: string) => {
+        setManualTargetIndex(index);
+        setManualSearchQuery(defaultName);
+        setManualSearchResults([]);
+        setManualModalOpen(true);
+    };
+
+    const handleManualSearch = async (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        // Ensure manual search doesn't get blocked by missing URL params if user picked store from UI
+        const locId = urlLocationId || activeLocationId; 
+        
+        if (!locId) {
+             console.log("CRITICAL: Manual Search failed. No Location ID saved in state.");
+             alert("Error: Please trigger an automated Compare Prices check first to bind a valid Kroger Location ID!");
+             return;
+        }
+
+        const safeQuery = manualSearchQuery.trim();
+        console.log('SEARCHING FOR:', safeQuery, 'Location:', locId);
+        
+        startManualSearching(async () => {
+             try {
+                 const res = await fetchManualKrogerResultsAction(safeQuery, locId);
+                 if (res.success) {
+                     console.log('Manual Search Results Set:', res.data.length);
+                     setManualSearchResults(res.data);
+                 } else {
+                     console.log(`Manual Search API returned error status: ${res.error}`);
+                     setManualSearchResults([]);
+                 }
+             } catch (err: any) {
+                 console.log("Exception caught in Handle Manual Search:", err);
+                 setManualSearchResults([]);
+             }
+        });
+    };
+
+    const toggleManualUnavailable = (index: number, foodLionName: string) => {
+        setComparisonResults(prev => {
+            const copy = [...prev];
+            const current = copy[index];
+            if (current?.manualUnavailable) {
+                // Undo Action: Reset back to "Not Found" logic explicitly asking to research
+                copy[index] = { error: 'Not found', originalQuery: foodLionName };
+            } else {
+                // Tag completely natively
+                copy[index] = {
+                    error: 'Manually marked as unavailable',
+                    manualUnavailable: true,
+                    price: undefined,
+                    originalQuery: foodLionName
+                };
+            }
+            return copy;
+        });
+    };
+
+    const handleSelectManualResult = (result: any) => {
+        if (manualTargetIndex === null) return;
+        setComparisonResults(prev => {
+            const copy = [...prev];
+            copy[manualTargetIndex] = { ...result, manualSelected: true };
+            return copy;
+        });
+        setManualModalOpen(false);
+    };
 
     const getNormalizedSize = (sizeStr: string): { value: number | null, unit: string | null } => {
         if (!sizeStr) return { value: null, unit: null };
@@ -149,6 +228,7 @@ export function CartSidebar({ savedItems }: { savedItems: any[] }) {
 
     const executeComparison = (locationId: string) => {
         setComparisonResults([]); // Flush legacy array visually immediately
+        setActiveLocationId(locationId); // Ensure manual overrides inherit standard searches
         startComparison(async () => {
              const searchPayloads = savedItems.map(s => prepareKrogerSearchTerm(s.name, s.unit || s.size || "1 ct", s.brand));
              const res = await bulkKrogerCompareAction(searchPayloads, locationId);
@@ -331,17 +411,47 @@ export function CartSidebar({ savedItems }: { savedItems: any[] }) {
                                         </div>
 
                                         {/* Kroger Side */}
-                                        {!hasMatch ? (
-                                            <div className="p-4 flex flex-col justify-center items-center bg-neutral-950/50 text-center">
-                                                <span className="text-sm text-red-500 font-medium mb-1">Not Found</span>
-                                                <span className="text-[10px] text-neutral-600 truncate max-w-full italic px-2">~ {krog?.originalQuery}</span>
+                                        {krog?.manualUnavailable ? (
+                                            <div className="p-4 flex flex-col justify-center items-center bg-neutral-900/50 text-center relative">
+                                                <div className="absolute top-3 right-3 flex gap-2">
+                                                    <button title="Manually Link Item" onClick={() => openManualOverride(i, foodLionItem.name)} className="text-neutral-600 hover:text-indigo-400 transition-colors">
+                                                        <Edit2 className="h-4 w-4" />
+                                                    </button>
+                                                    <button title="Restore Item" onClick={() => toggleManualUnavailable(i, foodLionItem.name)} className="text-red-900 hover:text-red-400 transition-colors">
+                                                        <Ban className="h-4 w-4 text-red-500/50" />
+                                                    </button>
+                                                </div>
+                                                <Ban className="h-6 w-6 text-neutral-700 mb-2 mt-2" />
+                                                <span className="text-sm text-neutral-500 font-medium">Item Unavailable</span>
+                                            </div>
+                                        ) : !hasMatch ? (
+                                            <div className="p-4 flex flex-col justify-center items-center bg-neutral-950/50 text-center relative">
+                                                <div className="absolute top-3 right-3 flex gap-2">
+                                                    <button title="Manually Link Item" onClick={() => openManualOverride(i, foodLionItem.name)} className="text-neutral-600 hover:text-indigo-400 transition-colors">
+                                                        <Edit2 className="h-4 w-4" />
+                                                    </button>
+                                                    <button title="Mark as Unavailable" onClick={() => toggleManualUnavailable(i, foodLionItem.name)} className="text-neutral-600 hover:text-red-400 transition-colors">
+                                                        <Ban className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                                <span className="text-sm text-red-500 font-medium mb-1 mt-2">Not Found</span>
+                                                <span className="text-[10px] text-neutral-600 truncate max-w-full italic px-2">~ {krog?.originalQuery || foodLionItem.name}</span>
                                             </div>
                                         ) : (
                                             <div className={`p-4 flex flex-col justify-between ${isKrogerCheaper ? "bg-emerald-950/30" : ""}`}>
                                                 <div className="space-y-1 mb-4">
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-xs font-bold text-indigo-500 uppercase tracking-wider">Kroger</span>
-                                                        {krog.brand && <span className="text-[10px] bg-indigo-950/50 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-900/30 truncate">{krog.brand}</span>}
+                                                        {krog.manualSelected && <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/30 font-bold whitespace-nowrap">Manually Linked</span>}
+                                                        {krog.brand && !krog.manualSelected && <span className="text-[10px] bg-indigo-950/50 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-900/30 truncate">{krog.brand}</span>}
+                                                        <div className="ml-auto flex gap-1.5">
+                                                            <button title="Edit Match" onClick={() => openManualOverride(i, krog.originalQuery || foodLionItem.name)} className="text-indigo-500/50 hover:text-indigo-400 transition-colors">
+                                                                <Edit2 className="h-3.5 w-3.5" />
+                                                            </button>
+                                                            <button title="Mark as Unavailable" onClick={() => toggleManualUnavailable(i, foodLionItem.name)} className="text-indigo-500/50 hover:text-red-400 transition-colors">
+                                                                <Ban className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                     <p className={`text-sm font-bold line-clamp-2 ${isKrogerCheaper ? "text-white" : "text-indigo-200"}`}>
                                                         {krog.name}
@@ -433,6 +543,71 @@ export function CartSidebar({ savedItems }: { savedItems: any[] }) {
                             ))}
                         </div>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={manualModalOpen} onOpenChange={setManualModalOpen}>
+                <DialogContent className="sm:max-w-md bg-neutral-900 border-neutral-800 text-white shadow-2xl max-h-[85vh] flex flex-col overflow-hidden">
+                    <DialogHeader className="shrink-0 mb-4">
+                        <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+                            <Edit2 className="h-6 w-6 text-indigo-400" /> Manual Override
+                        </DialogTitle>
+                        <DialogDescription className="text-neutral-400">
+                            Search Kroger database to manually map this cart item.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <form onSubmit={handleManualSearch} className="flex flex-col gap-3 shrink-0">
+                        <input 
+                            type="text"
+                            required
+                            value={manualSearchQuery}
+                            onChange={(e) => setManualSearchQuery(e.target.value)}
+                            className="bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white focus:ring-1 focus:ring-indigo-500 w-full outline-none"
+                            placeholder="Enter product name and size..."
+                        />
+                        <div className="flex gap-3 mt-2">
+                            <Button 
+                                type="button" 
+                                variant="outline" 
+                                className="flex-1 text-white border-neutral-700 bg-neutral-800 hover:bg-neutral-700"
+                                onClick={() => setManualModalOpen(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button 
+                                type="submit" 
+                                disabled={isManualSearching || manualSearchQuery.length < 3}
+                                className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold"
+                            >
+                                {isManualSearching ? "Searching..." : "Search"}
+                            </Button>
+                        </div>
+                    </form>
+
+                    <div className="flex-1 overflow-y-auto mt-6 space-y-3 pr-2 custom-scrollbar">
+                        {manualSearchResults.length === 0 && !isManualSearching && (
+                             <p className="text-center text-neutral-500 text-sm mt-4 italic">No results found or waiting for search.</p>
+                        )}
+                        {manualSearchResults.map((res: any, idx) => (
+                            <button 
+                                key={`manual-${idx}`}
+                                onClick={() => handleSelectManualResult(res)}
+                                className="w-full flex text-left gap-3 p-3 rounded-xl border border-neutral-800 bg-neutral-950 hover:border-indigo-500 hover:bg-neutral-900 transition items-center"
+                            >
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-bold text-sm text-indigo-200 line-clamp-2">{res.name || res.description}</p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className="text-xs text-neutral-400 font-medium">${res.price}</span>
+                                        <span className="text-[10px] text-neutral-500">{res.unit}</span>
+                                    </div>
+                                </div>
+                                <div className="shrink-0 bg-indigo-600/20 text-indigo-400 font-bold text-xs py-1 px-3 rounded-full border border-indigo-500/30">
+                                    Select
+                                </div>
+                            </button>
+                        ))}
+                    </div>
                 </DialogContent>
             </Dialog>
         </>

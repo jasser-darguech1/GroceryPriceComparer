@@ -201,7 +201,7 @@ function calculateSimilarityScore(target: string, resultName: string, querySize?
     return score;
 }
 
-export async function searchKroger(locationId: string, locationAddress: string, zip: string, query: string, targetBrand?: string) {
+export async function searchKroger(locationId: string, locationAddress: string, zip: string, query: string, targetBrand?: string, isManual?: boolean) {
     const token = await getAccessToken();
     const BASE_URL = 'https://api.kroger.com/v1';
 
@@ -280,6 +280,13 @@ export async function searchKroger(locationId: string, locationAddress: string, 
                 similarity
             };
         }).filter(Boolean);
+
+        if (isManual) {
+            console.log('Manual Search Query:', query);
+            const manualSlice = scoredProducts.slice(0, 10);
+            console.log('Manual Search Results:', manualSlice.map((p: any) => p.name));
+            return manualSlice;
+        }
 
         // Strict 15% Unit Filter Validation & Sorting
         let validMatches: any[] = [];

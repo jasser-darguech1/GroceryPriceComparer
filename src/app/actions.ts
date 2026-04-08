@@ -185,3 +185,18 @@ export async function clearAllItems() {
     revalidatePath('/');
     return { success: true };
 }
+
+export async function fetchManualKrogerResultsAction(query: string, locationId: string) {
+    if (!query || !locationId) {
+        return { success: false, data: [] };
+    }
+
+    try {
+        // Execute Kroger search bypassing strict tracking filters!
+        const results = await searchKroger(locationId, "Comparison Map", "Auto", query, undefined, true);
+        return { success: true, data: results || [] };
+    } catch (e: any) {
+        console.error("Manual comparison search error:", e);
+        return { success: false, error: e.message, data: [] };
+    }
+}
