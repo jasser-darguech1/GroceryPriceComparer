@@ -68,6 +68,7 @@ if products:
         results.append({
             "productId": str(p.get("prodId", p.get("upc", ""))),
             "name": p.get("name", "Unknown Product"),
+            "brand": p.get("brand", ""),
             "price": p.get("price", 0.0),
             "unit": p.get("size", "unknown"),
             "locationId": "FoodLion",

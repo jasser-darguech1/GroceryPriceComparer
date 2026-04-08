@@ -80,8 +80,37 @@ export async function searchGroceriesAction(prevState: any, formData: FormData) 
     }
 }
 
+export async function bulkKrogerCompareAction(searchPayloads: {query: string, targetBrand: string}[], locationId: string) {
+    if (!searchPayloads.length || !locationId) {
+        return { success: false, data: [] };
+    }
+
+    try {
+        const comparisons = await Promise.allSettled(
+            searchPayloads.map(async (payload) => {
+                const results = await searchKroger(locationId, "Comparison Map", "Auto", payload.query, payload.targetBrand);
+                // Return only the top match if it exists
+                return results && results.length > 0 ? results[0] : null;
+            })
+        );
+
+        // Map outcomes into a single unified array structure
+        const data = comparisons.map((res: any, i) => {
+            if (res.status === 'fulfilled' && res.value) {
+                return { ...res.value, originalQuery: searchPayloads[i].query };
+            }
+            return { error: 'Not found', originalQuery: searchPayloads[i].query };
+        });
+
+        return { success: true, data };
+    } catch (e: any) {
+        console.error("Comparison execution error:", e);
+        return { success: false, error: e.message, data: [] };
+    }
+}
+
 export async function saveGrocery(item: any) {
-    const { productId, name, price, locationId, zip, imageUrl } = item;
+    const { productId, name, price, locationId, zip, imageUrl, unit, brand } = item;
     
     // Check if exists for quantity incrementing vs creating new one
     const { data: existing } = await supabase.from('saved_groceries').select('id, quantity').eq('product_id', productId).single();
@@ -91,7 +120,7 @@ export async function saveGrocery(item: any) {
         const { error: updateError } = await supabase.from('saved_groceries').update({ quantity: existing.quantity + 1 }).eq('id', existing.id);
         error = updateError;
     } else {
-        const { error: insertError } = await supabase.from('saved_groceries').insert([{ product_id: productId, name, price, location_id: locationId, zip, image_url: imageUrl, quantity: 1 }]);
+        const { error: insertError } = await supabase.from('saved_groceries').insert([{ product_id: productId, name, price, location_id: locationId, zip, image_url: imageUrl, quantity: 1, unit, brand }]);
         error = insertError;
     }
 
