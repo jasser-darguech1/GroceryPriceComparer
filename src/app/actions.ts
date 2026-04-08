@@ -3,6 +3,45 @@
 import { searchKroger, getKrogerStores } from '@/lib/kroger';
 import { supabase } from '@/lib/supabase';
 import { revalidatePath } from 'next/cache';
+import { exec } from 'child_process';
+import util from 'util';
+
+const execPromise = util.promisify(exec);
+
+export async function searchFoodLionAction(prevState: any, formData: FormData) {
+    const query = formData.get('query') as string;
+    
+    if (!query) {
+         return { success: false, error: "Missing search query", data: [] };
+    }
+    
+    try {
+        const { stdout, stderr } = await execPromise(`python FoodLionScraper/foodLionScr.py`, {
+            env: { ...process.env, SEARCH: query }
+        });
+        
+        const results = JSON.parse(stdout);
+        
+        // Match Supabase state exactly like we did for Kroger
+        const { data: savedDb } = await supabase.from('saved_groceries').select('product_id, quantity');
+        const savedMap = new Map();
+        if (savedDb) {
+            savedDb.forEach(s => savedMap.set(s.product_id, s.quantity));
+        }
+
+        const mappedResults = results.map((item: any) => ({
+            ...item,
+            isSaved: savedMap.has(item.productId),
+            savedQuantity: savedMap.get(item.productId) || 0
+        }));
+
+        return { success: true, data: mappedResults, error: null };
+        
+    } catch (e: any) {
+        console.error("Scraper exec error:", e);
+        return { success: false, error: "Scraping failed: " + e.message, data: [] };
+    }
+}
 
 export async function getStoresAction(zip: string, radius: number) {
     if (!zip) return { success: false, data: [] };
