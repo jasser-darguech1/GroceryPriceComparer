@@ -1,7 +1,7 @@
 [
 {
     "domain": ".foodlion.com",
-    "expirationDate": 1807166121.626797,
+    "expirationDate": 1807461821.96374,
     "hostOnly": false,
     "httpOnly": false,
     "name": "datadome",
@@ -10,12 +10,12 @@
     "secure": true,
     "session": false,
     "storeId": "0",
-    "value": "fgqi~FggOUyLbmuERChdbClex0qOw3NHQCxDRhBOCd000BTKble8kFf_CLgzwtPPVMKvu6M1z2JejYSwS5dvwvWzXcD6YHFsCKXaIqXvmMFGKRpuNDDvGiOLd2iNK_pJ",
+    "value": "x~523vN4AOVxJdwfSJc_QRszkAOq51qUkp_xMQKXxSm21KToUvj2Hylza3wmVQVifuo2b3dTL4gWFmTCbX9X9Rpj_BvWJSNs6GBJS7gnv3eqUnfmK6aVYuZ6t9p~gwLs",
     "id": 1
 },
 {
     "domain": ".foodlion.com",
-    "expirationDate": 1807166110,
+    "expirationDate": 1807461817,
     "hostOnly": false,
     "httpOnly": false,
     "name": "OptanonConsent",
@@ -24,7 +24,7 @@
     "secure": false,
     "session": false,
     "storeId": "0",
-    "value": "isGpcEnabled=0&datestamp=Wed+Apr+08+2026+02%3A35%3A10+GMT-0400+(Eastern+Daylight+Time)&version=202505.2.0&browserGpcFlag=0&isIABGlobal=false&hosts=&landingPath=NotLandingPage&groups=SPD_BG%3A1%2CC0004%3A1%2CC0005%3A1&AwaitingReconsent=false",
+    "value": "isGpcEnabled=0&datestamp=Sat+Apr+11+2026+12%3A43%3A37+GMT-0400+(Eastern+Daylight+Time)&version=202505.2.0&browserGpcFlag=0&isIABGlobal=false&hosts=&landingPath=NotLandingPage&groups=SPD_BG%3A1%2CC0004%3A1%2CC0005%3A1&AwaitingReconsent=false",
     "id": 2
 },
 {
@@ -43,7 +43,7 @@
 },
 {
     "domain": ".foodlion.com",
-    "expirationDate": 1810190107.767486,
+    "expirationDate": 1778517812.18766,
     "hostOnly": false,
     "httpOnly": true,
     "name": "ppdtk",
@@ -52,12 +52,12 @@
     "secure": true,
     "session": false,
     "storeId": "0",
-    "value": "8IFussq3MKBA/cnUbSnLmAsNxebutWhEzFWcdG8wt6Qfa/ve1igNbqspeJdOrvMG",
+    "value": "8IFussq3MKBA/cnUbSnLmAsNxebutWhEzFWcdG8wt6TLqQIlfdPu1hBpnYFAmMfU",
     "id": 4
 },
 {
     "domain": "foodlion.com",
-    "expirationDate": 1775633656.597299,
+    "expirationDate": 1775929419.444237,
     "hostOnly": true,
     "httpOnly": true,
     "name": "__cflb",
@@ -66,12 +66,12 @@
     "secure": false,
     "session": false,
     "storeId": "0",
-    "value": "0H28vGVj9y63MQ8Bw7hgK2ci2y2YrafKsijvAescYZ9",
+    "value": "0H28vGVj9y63MQ8Bw7hgK2ci2y2YrafKkXrXtv9afdM",
     "id": 5
 },
 {
     "domain": "foodlion.com",
-    "expirationDate": 1775631037,
+    "expirationDate": 1775926723,
     "hostOnly": true,
     "httpOnly": false,
     "name": "_dd_s",
@@ -80,12 +80,12 @@
     "secure": false,
     "session": false,
     "storeId": "0",
-    "value": "expire=1775631027075&rum=1&id=d83460a4-6918-4999-bc4f-355d40161281&created=1775630054006",
+    "value": "rum=1&id=a29fb779-b425-43e3-a513-134d9c962217&created=1775925814705&expire=1775926714705",
     "id": 6
 },
 {
     "domain": "foodlion.com",
-    "expirationDate": 1775779721.942452,
+    "expirationDate": 1776098623.301967,
     "hostOnly": true,
     "httpOnly": false,
     "name": "_lr_geo_location",
@@ -99,7 +99,7 @@
 },
 {
     "domain": "foodlion.com",
-    "expirationDate": 1775779721.942205,
+    "expirationDate": 1776098623.301686,
     "hostOnly": true,
     "httpOnly": false,
     "name": "_lr_geo_location_state",
@@ -108,7 +108,7 @@
     "secure": false,
     "session": false,
     "storeId": "0",
-    "value": "NJ",
+    "value": "NY",
     "id": 8
 }
 ]

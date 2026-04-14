@@ -10,6 +10,7 @@ const execPromise = util.promisify(exec);
 
 export async function searchFoodLionAction(prevState: any, formData: FormData) {
     const query = formData.get('query') as string;
+    const cookiesJson = formData.get('cookiesJson') as string;
     
     if (!query) {
          return { success: false, error: "Missing search query", data: [] };
@@ -17,7 +18,7 @@ export async function searchFoodLionAction(prevState: any, formData: FormData) {
     
     try {
         const { stdout, stderr } = await execPromise(`python FoodLionScraper/foodLionScr.py`, {
-            env: { ...process.env, SEARCH: query }
+            env: { ...process.env, SEARCH: query, FOOD_LION_COOKIES: cookiesJson }
         });
         
         const results = JSON.parse(stdout);

@@ -1,15 +1,39 @@
 "use client"
 
-import { useActionState, useTransition } from 'react';
+import { useActionState, useTransition, useState, useEffect } from 'react';
 import Image from 'next/image';
 import { searchFoodLionAction, saveGrocery, updateItemQuantity } from '@/app/actions';
-import { Search, MapPin, Plus, Store, Minus, ShoppingBag } from 'lucide-react';
+import { Search, MapPin, Plus, Store, Minus, ShoppingBag, Settings } from 'lucide-react';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 const initialState = { success: false, error: null as string | null, data: [] as any[] };
 
 export default function FoodLionClient({ savedItems }: { savedItems: any[] }) {
     const [state, formAction, isPending] = useActionState<any, FormData>(searchFoodLionAction, initialState);
     const [isSaving, startSaving] = useTransition();
+
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [cookiesJson, setCookiesJson] = useState("");
+
+    useEffect(() => {
+        const savedCookies = localStorage.getItem('foodLionCookiesJson');
+        if (savedCookies) {
+            setCookiesJson(savedCookies);
+        }
+    }, []);
+
+    const saveSettings = () => {
+        localStorage.setItem('foodLionCookiesJson', cookiesJson);
+        setSettingsOpen(false);
+    };
 
     const handleSave = async (item: any) => {
         startSaving(async () => {
@@ -29,9 +53,38 @@ export default function FoodLionClient({ savedItems }: { savedItems: any[] }) {
 
     return (
         <div className="w-full" suppressHydrationWarning>
-            <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-2xl shadow-2xl" suppressHydrationWarning>
+            <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+                <DialogContent className="sm:max-w-md bg-neutral-900 border-neutral-800 text-white">
+                    <DialogHeader>
+                        <DialogTitle>Food Lion Settings</DialogTitle>
+                        <DialogDescription className="text-neutral-400">
+                            Update your dynamic datadome cookie to bypass Food Lion's anti-bot system.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <label className="text-sm text-neutral-400 mb-2 block">Paste full cookies.json array here:</label>
+                        <textarea 
+                            className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white focus:ring-1 focus:ring-blue-500 outline-none font-mono text-xs min-h-[150px] resize-y" 
+                            value={cookiesJson} 
+                            onChange={(e) => setCookiesJson(e.target.value)} 
+                            placeholder='[{"name": "datadome", "value": "..."}, ...]' 
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" onClick={saveSettings} className="bg-blue-600 hover:bg-blue-500 text-white w-full">Save Cookie</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-2xl shadow-2xl relative" suppressHydrationWarning>
+                <div className="absolute top-4 right-4">
+                    <button onClick={() => setSettingsOpen(true)} className="text-neutral-500 hover:text-white transition p-2 bg-neutral-800/50 rounded-lg hover:bg-neutral-800">
+                        <Settings className="w-5 h-5" />
+                    </button>
+                </div>
                 {state.error && <div className="text-red-500 mb-4 font-bold">{state.error}</div>}
-                <form action={formAction} className="space-y-6" suppressHydrationWarning>
+                <form action={formAction} className="space-y-6 pt-4" suppressHydrationWarning>
+                    <input type="hidden" name="cookiesJson" value={cookiesJson} />
                     <div className="relative">
                         <Search className="absolute left-4 top-4 h-6 w-6 text-neutral-500" />
                         <input 

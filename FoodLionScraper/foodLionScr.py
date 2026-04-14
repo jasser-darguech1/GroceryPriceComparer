@@ -7,16 +7,25 @@ from datetime import datetime
 SEARCH = os.environ.get("SEARCH", "eggs large")
 
 def load_cookies(cookie_file="FoodLionScraper/cookies.json"):
-    # Fix the path loading strictly relative to the main project running folder boundary
-    path = cookie_file if os.path.exists(cookie_file) else "cookies.json"
-    with open(path, "r") as f:
-        cookies = json.load(f)
-    for cookie in cookies:
+    env_cookies = os.environ.get("FOOD_LION_COOKIES", "").strip()
+    
+    if env_cookies and env_cookies.startswith("["):
+        print("Using dynamically injected cookies.json Array from UI", file=sys.stderr)
+        cookies_list = json.loads(env_cookies)
+    else:
+        path = cookie_file if os.path.exists(cookie_file) else "cookies.json"
+        with open(path, "r") as f:
+            cookies_list = json.load(f)
+    
+    cookies_dict = {}
+    for cookie in cookies_list:
+        cookies_dict[cookie["name"]] = cookie["value"]
         if cookie["name"] == "datadome":
             expires = datetime.fromtimestamp(cookie["expirationDate"])
             days_left = (expires - datetime.now()).days
             print(f"datadome cookie expires: {expires.strftime('%Y-%m-%d')} ({days_left} days from now)", file=sys.stderr)
-    return {cookie["name"]: cookie["value"] for cookie in cookies}
+            
+    return cookies_dict
 
 cookies = load_cookies()
 
