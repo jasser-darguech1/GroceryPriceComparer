@@ -3,6 +3,7 @@ import { Store, ShoppingBag } from 'lucide-react';
 import FoodLionClient from '@/components/FoodLionClient';
 import { getSavedItems } from '@/app/actions';
 import { CartSidebar } from '@/components/CartSidebar';
+import { Suspense } from 'react';
 
 export default async function Home() {
     const { data: savedItems } = await getSavedItems();
@@ -29,7 +30,9 @@ export default async function Home() {
 
             <div className="w-full max-w-4xl">
                  <FoodLionClient savedItems={savedItems || []} />
-                 <CartSidebar savedItems={savedItems || []} />
+                 <Suspense fallback={null}>
+                      <CartSidebar savedItems={savedItems || []} />
+                 </Suspense>
             </div>
         </main>
     );

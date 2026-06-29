@@ -9,27 +9,39 @@ SEARCH = os.environ.get("SEARCH", "eggs large")
 def load_cookies(cookie_file="FoodLionScraper/cookies.json"):
     env_cookies = os.environ.get("FOOD_LION_COOKIES", "").strip()
     
-    if env_cookies and env_cookies.startswith("["):
-        print("Using dynamically injected cookies.json Array from UI", file=sys.stderr)
-        cookies_list = json.loads(env_cookies)
+    cookies_dict = {}
+    if env_cookies:
+        if env_cookies.startswith("["):
+            print("Using dynamically injected cookies.json Array from UI", file=sys.stderr)
+            try:
+                cookies_list = json.loads(env_cookies)
+                for cookie in cookies_list:
+                    cookies_dict[cookie["name"]] = cookie["value"]
+            except Exception as e:
+                print(f"Error parsing cookies JSON: {e}", file=sys.stderr)
+        else:
+            print("Parsing dynamically injected raw cookie string from UI", file=sys.stderr)
+            # Parse raw semicolon-separated cookies (e.g. from copy-pasting the Cookie header)
+            for item in env_cookies.split(';'):
+                if '=' in item:
+                    k, v = item.strip().split('=', 1)
+                    cookies_dict[k] = v
     else:
         path = cookie_file if os.path.exists(cookie_file) else "cookies.json"
-        with open(path, "r") as f:
-            cookies_list = json.load(f)
-    
-    cookies_dict = {}
-    for cookie in cookies_list:
-        cookies_dict[cookie["name"]] = cookie["value"]
-        if cookie["name"] == "datadome":
-            expires = datetime.fromtimestamp(cookie["expirationDate"])
-            days_left = (expires - datetime.now()).days
-            print(f"datadome cookie expires: {expires.strftime('%Y-%m-%d')} ({days_left} days from now)", file=sys.stderr)
-            
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                try:
+                    cookies_list = json.load(f)
+                    for cookie in cookies_list:
+                        cookies_dict[cookie["name"]] = cookie["value"]
+                except Exception as e:
+                    print(f"Error reading cookies.json: {e}", file=sys.stderr)
+                    
     return cookies_dict
 
 cookies = load_cookies()
 
-url = "https://foodlion.com/api/v6.0/products/382429261/50002071"
+url = "https://foodlion.com/api/v6.0/products/2/50002071"
 
 params = {
     "sort": "bestMatch asc",
@@ -47,12 +59,11 @@ params = {
 }
 
 headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "en-US,en;q=0.9",
-    "Accept-Encoding": "gzip, deflate, br",
-    "Referer": "https://foodlion.com/",
-    "sec-ch-ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+    "Referer": "https://foodlion.com/product-search/milk?searchRef=&semanticSearch=false",
+    "sec-ch-ua": '"Microsoft Edge";v="149", "Chromium";v="149", "Not)A;Brand";v="24"',
     "sec-ch-ua-mobile": "?0",
     "sec-ch-ua-platform": '"Windows"',
     "sec-fetch-dest": "empty",
@@ -61,10 +72,10 @@ headers = {
     "Connection": "keep-alive",
 }
 
-response = requests.get(url, params=params, headers=headers, cookies=cookies, impersonate="chrome")
+response = requests.get(url, params=params, headers=headers, cookies=cookies, impersonate="edge")
 
-if response.status_code == 403:
-    print("Cookie revoked or expired — export fresh cookies from your browser and replace cookies.json", file=sys.stderr)
+if response.status_code in (403, 409):
+    print("Cookie revoked, expired, or blocked by DataDome — export fresh cookies from your browser and replace cookies.json", file=sys.stderr)
     exit(1)
 
 response.raise_for_status()
